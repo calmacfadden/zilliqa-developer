@@ -22,7 +22,7 @@ jobs:
     name: "Build and deploy"
     env:
       AWS_REGION: us-west-2
-      DEFAULT_BRANCH: main
+      DEFAULT_BRANCH: pipeline/enhance
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -42,7 +42,7 @@ jobs:
       - name: Verify the contents of the .github/outputs/added_files.json file
         run: |
           ls -la .github/outputs
-          cat .github/outputs/added_files.json
+          cat .github/outputs/all_changed_files.json
 
       # - name: Run a step if my-file.txt was modified
       #   if: contains(steps.changed-files.outputs.modified_files, 'my-file.txt')
