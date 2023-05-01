@@ -1,0 +1,84 @@
+name: "Create application update"
+
+on:
+  # Test run before merging
+  pull_request:
+    branches:
+      - main
+  # On merged
+  push:
+    branches:
+      - main
+  # On released
+  release:
+    types: [created]
+
+jobs:
+  build-docker:
+    permissions:
+      id-token: write
+      contents: write
+    runs-on: ubuntu-22.04
+    name: "Build and deploy"
+    env:
+      AWS_REGION: us-west-2
+      DEFAULT_BRANCH: main
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
+          fetch-depth: 2
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v35
+        with:
+          dir_names: "true"
+          json: true
+          write_output_files: true
+
+      - name: Verify the contents of the .github/outputs/added_files.json file
+        run: |
+          ls -la .github/outputs
+          cat .github/outputs/added_files.json
+
+      # - name: Run a step if my-file.txt was modified
+      #   if: contains(steps.changed-files.outputs.modified_files, 'my-file.txt')
+      #   run: |
+      #     echo "my-file.txt file has been modified."
+
+      - name: Preparing merged branches
+        # Fetch the ref of the base branch, just the single commit.
+        run: |
+          git config --global user.email "bot@zilliqa.com"
+          git config --global user.name "Zilliqa Bot"
+
+          echo "Running git checkout ${{ env.DEFAULT_BRANCH }}"
+
+          git checkout ${{ env.DEFAULT_BRANCH }}
+          git fetch --all --tags
+          git pull --all
+
+          # Checking out the base branch to make this our working branch and
+          # merge the head
+          echo "Running git checkout ${{ github.base_ref }}"
+
+          git checkout ${{ github.base_ref }}
+          git fetch --all --tags
+          git pull --all
+          python config/workspace-status.py
+
+      - name: Committing head
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        # Fetch the ref of the base branch, just the single commit.
+        run: |
+          echo "Running git merge --squash ${{ env.HEAD_REF }}"
+          git merge --squash ${{ env.HEAD_REF }}
+
+          git add . -A
+          git commit -m "Finish merge"
+          python config/workspace-status.py
